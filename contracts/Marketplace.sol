@@ -34,7 +34,7 @@ contract Marketplace is IMarketplace, ReentrancyGuard {
         _totalListedAmount[msg.sender][tokenId] += amount;
         uint64 id = _currentId;
         _currentId += 1;
-        emit ItemListed(id, msg.sender, price);
+        emit ItemListed(id, tokenId, msg.sender, amount, price);
     }
 
     function purchaseItem(uint64 itemId, uint64 amount, uint64 price) external nonReentrant {
@@ -49,7 +49,7 @@ contract Marketplace is IMarketplace, ReentrancyGuard {
             delete _listedItems[itemId];
         }
         _totalListedAmount[item.seller][item.tokenId] = _totalListedAmount[item.seller][item.tokenId].sub(amount);
-        require(_StableCoinContractInterface.transferFrom(msg.sender, item.seller, item.price * amount), "BUSD transfer failed");
+        require(_StableCoinContractInterface.transferFrom(msg.sender, item.seller, item.price * amount), "stable Coin transfer failed");
         require(_iFractionalizedNFT.transferFrom(item.tokenId, item.seller, msg.sender, amount), "NFT transfer failed");        
         emit ItemPurchased(itemId, msg.sender, item.seller, amount, item.price * amount);
     }

@@ -83,10 +83,10 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
     return _chargedStreamsCount;
   }
 
-  function transfer(string calldata id, address recipient, uint64 amount) external returns (bool) {
-    _transfer(id, _msgSender(), recipient, amount);
-    return true;
-  }
+    function transfer(string calldata id, address recipient, uint64 amount) external returns (bool) {
+      _transfer(id, _msgSender(), recipient, amount);
+      return true;
+    }
 
   function allowance(string calldata id, address owner, address spender) external view returns (uint64) {
     return _allowances[owner][spender][id];
@@ -176,7 +176,6 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
     _mint(id, _msgSender(), amount);
     return true;
   }
-
 
   function _transfer(string calldata id, address sender, address recipient, uint64 amount) internal {
     require(sender != address(0), "transfer from the zero address");

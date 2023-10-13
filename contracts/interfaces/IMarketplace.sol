@@ -4,7 +4,7 @@ pragma solidity >0.4.0 <= 0.9.0;
 
 interface IMarketplace {
 
-    event ItemListed(uint64 itemId, address indexed seller, uint256 price);
+    event ItemListed(uint64 itemId, string tokenId, address indexed seller, uint64 amount, uint256 price);
     event ItemPurchased(uint64 itemId, address indexed buyer, address indexed seller, uint64 amount, uint256 price);
     event ItemPriceUpdated(uint64 itemId, uint256 newPrice);
     event ItemDelisted(uint64 itemId);
