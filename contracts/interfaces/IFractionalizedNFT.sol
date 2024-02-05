@@ -32,6 +32,8 @@ interface IFractionalizedNFT {
    */
   function transfer(string calldata id,address recipient, uint64 amount) external returns (bool);
 
+  function mint(string calldata id, address owner, uint64 amount) external returns (bool);
+
   /**
    * @dev Returns the remaining number of tokens with `id` that `spender` will be
    * allowed to spend on behalf of `owner` through {transferFrom}. This is

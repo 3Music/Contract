@@ -4,11 +4,12 @@ pragma solidity >0.4.0 <= 0.9.0;
 import "./libraries/SafeMath.sol";
 import "./helpers/Ownable.sol";
 import "./helpers/Context.sol";
+import "./helpers/Approvable.sol";
 import "./interfaces/IFractionalizedNFT.sol";
 import "./interfaces/StableCoinContractInterface.sol";
 
 
-contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
+contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable, Approvable {
   using SafeMath for uint64;
 
   struct NFTStats {
@@ -21,16 +22,6 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
   uint256 private _streamPrice;
   uint64 private _chargedStreamsCount;
   uint64 private _totalPaidStreams;
-  StableCoinContractInterface _StableCoinContractInterface;
-
-  constructor(address _StableCoinContractAddress, uint256 nftStreamCost, uint256 streamCost) {
-    _nftStreamCost = nftStreamCost;
-    _streamPrice = streamCost;
-    _StableCoinContractInterface = StableCoinContractInterface(_StableCoinContractAddress);
-    _chargedStreamsCount = 0;
-    _totalPaidStreams = 0;
-  }
-
   mapping (address => mapping(string => NFTStats)) private _userNFTs;
   mapping (string => uint256) private _nftTotalPayouts;
   mapping (string => uint64) private _nftTotalStreams;
@@ -39,6 +30,15 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
 
   mapping (string => uint64) private _totalSupply;
   mapping (string => uint64) private _maxSupply;
+  uint64 private _tokensMaxSupply;
+
+  StableCoinContractInterface _StableCoinContractInterface;
+
+  constructor(address _StableCoinContractAddress) {
+    _StableCoinContractInterface = StableCoinContractInterface(_StableCoinContractAddress);
+    _chargedStreamsCount = 0;
+    _totalPaidStreams = 0;
+  }  
 
   function getOwner() external view returns (address) {
     return owner();
@@ -52,8 +52,8 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
     return _maxSupply[id];
   }
 
-  function setMaxSupply(string calldata id, uint64 nftMaxSupply) external onlyOwner returns (bool) {
-    _maxSupply[id] = nftMaxSupply;
+  function setMaxSupply(uint64 nftMaxSupply) external onlyOwner returns (bool) {
+    _tokensMaxSupply = nftMaxSupply;
     return true;
   }
 
@@ -83,10 +83,10 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
     return _chargedStreamsCount;
   }
 
-    function transfer(string calldata id, address recipient, uint64 amount) external returns (bool) {
-      _transfer(id, _msgSender(), recipient, amount);
-      return true;
-    }
+  function transfer(string calldata id, address recipient, uint64 amount) external returns (bool) {
+    _transfer(id, _msgSender(), recipient, amount);
+    return true;
+  }
 
   function allowance(string calldata id, address owner, address spender) external view returns (uint64) {
     return _allowances[owner][spender][id];
@@ -172,8 +172,8 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
     return true;
   }
 
-  function mint(string calldata id, uint64 amount) public onlyOwner returns (bool) {
-    _mint(id, _msgSender(), amount);
+  function mint(string calldata id, address owner, uint64 amount) external onlyApproved returns (bool) {
+    _mint(id, owner, amount);
     return true;
   }
 
@@ -199,6 +199,10 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable {
     require(account != address(0), "mint to the zero address");
     require(amount > 0, "cannot mint 0 tokens");
     uint64 tokenMaxSupply = _maxSupply[id];
+    if (tokenMaxSupply == 0) {
+      tokenMaxSupply = _tokensMaxSupply;    
+      _maxSupply[id] = tokenMaxSupply;
+    }
     uint64 currentTotalSupply = _totalSupply[id];
     require(tokenMaxSupply >= currentTotalSupply + amount, "Cannot mint more than max supply");
 

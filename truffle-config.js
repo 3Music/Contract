@@ -12,8 +12,10 @@ module.exports = {
     testnet: {
       provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-1-s1.bnbchain.org:8545`),
       network_id: 97,
-      confirmations: 10,
-      timeoutBlocks: 200,
+      confirmations: 5,
+      gasPrice: 20000000000,
+      networkCheckTimeout: 20000,
+      timeoutBlocks: 300,
       skipDryRun: true
     },
     bsc: {

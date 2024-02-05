@@ -2,28 +2,44 @@
 pragma experimental ABIEncoderV2;
 pragma solidity >0.4.0 <= 0.9.0;
 
+import "./helpers/Ownable.sol";
+import "./helpers/Context.sol";
 import "./interfaces/IMarketplace.sol";
 import "./interfaces/StableCoinContractInterface.sol";
 import "./interfaces/IFractionalizedNFT.sol";
 import "./libraries/SafeMath.sol";
 import "./helpers/ReentrancyGuard.sol";
 
-contract Marketplace is IMarketplace, ReentrancyGuard {
+contract Marketplace is IMarketplace, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint64;
     mapping(uint64 => Item) private _listedItems;
     mapping(address => mapping (string => uint64)) _totalListedAmount;
+    mapping(string => address) _nftCreators;
+    address private _tokenBank;
+    uint64 private _nftCreatorMintShare;
+    uint64 private constant SHARE_DECIMALS = 100;
     uint64 private _currentId;
     StableCoinContractInterface _StableCoinContractInterface;
     IFractionalizedNFT _iFractionalizedNFT;
 
-    constructor(address stableCoinContractAddress, address nftContractAddress) {
+    constructor(address stableCoinContractAddress, address nftContractAddress, uint64 nftCreatorMintShare) {
         _currentId = 0;
         _StableCoinContractInterface = StableCoinContractInterface(stableCoinContractAddress);
         _iFractionalizedNFT = IFractionalizedNFT(nftContractAddress);
+        _nftCreatorMintShare = nftCreatorMintShare;
     }
 
     function getTotalListedAmount(string calldata tokenId) external view returns(uint64) {
         return _totalListedAmount[msg.sender][tokenId];
+    }
+
+    function mint(string calldata tokenId, address creator, address buyer, uint64 amount, uint256 price) external onlyOwner {
+        _nftCreators[tokenId] = creator;
+        uint256 totalPrice = price * amount;
+        require(_StableCoinContractInterface.transferFrom(buyer, _tokenBank, totalPrice), "Coin tranfer failed");
+        require(_StableCoinContractInterface.transferFrom(_tokenBank, creator, totalPrice * _nftCreatorMintShare / SHARE_DECIMALS),
+             "Coin tranfser to creator failed");
+        require(_iFractionalizedNFT.mint(tokenId, buyer, amount));
     }
 
     function listItem(string calldata tokenId, uint64 amount, uint256 price) external {
