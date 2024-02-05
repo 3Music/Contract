@@ -12,32 +12,17 @@ import "./interfaces/StableCoinContractInterface.sol";
 contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable, Approvable {
   using SafeMath for uint64;
 
-  struct NFTStats {
-    uint64 balance;
-    uint256 totalPayout;
-  }
-
   uint64 public constant BALANCES_DECIMALS = 100;
-  uint256 private _nftStreamCost;
-  uint256 private _streamPrice;
-  uint64 private _chargedStreamsCount;
-  uint64 private _totalPaidStreams;
-  mapping (address => mapping(string => NFTStats)) private _userNFTs;
-  mapping (string => uint256) private _nftTotalPayouts;
-  mapping (string => uint64) private _nftTotalStreams;
+  mapping (address => mapping(string => uint64)) private _userNFTs;
 
   mapping (address => mapping (address => mapping(string => uint64))) private _allowances;
 
   mapping (string => uint64) private _totalSupply;
-  mapping (string => uint64) private _maxSupply;
-  uint64 private _tokensMaxSupply;
 
   StableCoinContractInterface _StableCoinContractInterface;
 
   constructor(address _StableCoinContractAddress) {
     _StableCoinContractInterface = StableCoinContractInterface(_StableCoinContractAddress);
-    _chargedStreamsCount = 0;
-    _totalPaidStreams = 0;
   }  
 
   function getOwner() external view returns (address) {
@@ -48,39 +33,8 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable, Approvable {
     return _totalSupply[id];
   }
 
-  function maxSupply(string calldata id) external view returns (uint64) {
-    return _maxSupply[id];
-  }
-
-  function setMaxSupply(uint64 nftMaxSupply) external onlyOwner returns (bool) {
-    _tokensMaxSupply = nftMaxSupply;
-    return true;
-  }
-
   function balanceOf(string calldata id, address account) external view returns (uint64) {
-    return _userNFTs[account][id].balance;
-  }
-
-  function setNFTStreamCost(uint256 cost) external onlyOwner returns (bool) {
-    _nftStreamCost = cost;
-    return true;
-  }
-
-  function NFTStreamCost() external view returns (uint256) {
-    return _nftStreamCost;
-  }
-
-  function setStreamPrice(uint256 price) external onlyOwner returns (bool) {
-    _streamPrice = price;
-    return true;
-  }
-
-  function streamPrice() external view returns (uint256) {
-    return _streamPrice;
-  }
-
-  function chargedStreams() external view returns (uint64) {
-    return _chargedStreamsCount;
+    return _userNFTs[account][id];
   }
 
   function transfer(string calldata id, address recipient, uint64 amount) external returns (bool) {
@@ -104,64 +58,6 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable, Approvable {
     return true;
   }
 
-  function setStreams(string[] calldata ids, uint64[] calldata streamsCount) external onlyOwner returns(bool) {
-    for (uint i = 0; i < ids.length; i++) {
-      require(_nftTotalStreams[ids[i]] < streamsCount[i]);
-      _nftTotalPayouts[ids[i]] = _nftTotalPayouts[ids[i]] + (streamsCount[i] - _nftTotalStreams[ids[i]]) * _nftStreamCost;
-      _nftTotalStreams[ids[i]] = streamsCount[i];
-    }
-    return true;
-  }
-
-  function transferStableCoin(address recipient, uint256 amount) internal returns(bool) {
-    _StableCoinContractInterface.transfer(recipient, amount);
-    return true;
-  }
-
-  function transferFromStableCoin(address sender, address recipient, uint256 amount) internal returns(bool) {
-    _StableCoinContractInterface.transferFrom(sender, recipient, amount);
-    return true;
-  }
-
-  function payForStreams(address user, string[] calldata ids) internal returns (uint256) {
-    mapping (string => NFTStats) storage userNFTS = _userNFTs[user];
-    uint256 totalPayout = 0;
-    for (uint i = 0; i < ids.length; i++) {
-      uint256 totalNFTProfit = _nftTotalPayouts[ids[i]];
-      uint256 payout_amount = (totalNFTProfit - userNFTS[ids[i]].totalPayout) * userNFTS[ids[i]].balance / _maxSupply[ids[i]];
-      totalPayout += payout_amount;
-      userNFTS[ids[i]].totalPayout = totalNFTProfit;
-    }
-    transferFromStableCoin(owner(), user, totalPayout);
-    return totalPayout;
-  }
-
-  function payForStreams(address user, string calldata id) internal returns (uint256) {
-    mapping (string => NFTStats) storage userNFTS = _userNFTs[user];
-    uint256 totalPayout = 0;
-    uint256 payout_amount = (_nftTotalPayouts[id] - userNFTS[id].totalPayout) * userNFTS[id].balance / _maxSupply[id];
-    totalPayout += payout_amount;
-    userNFTS[id].totalPayout = _nftTotalPayouts[id];
-    transferFromStableCoin(owner(), user, totalPayout);
-    return totalPayout;
-  }
-
-  function collectNFTsIncome(string[] calldata ids) external returns (bool) {
-    uint256 totalPayout = payForStreams(_msgSender(), ids);
-    emit PaidForStreams(_msgSender(), totalPayout);
-    return true;
-  }
-
-  function chargeForStreams(address[] calldata users, uint64[] calldata streamCounts) external onlyOwner returns (bool) {
-    uint64 totalCharged = 0;
-    for (uint i = 0; i < users.length; i++) {
-      totalCharged += streamCounts[i];
-      transferFromStableCoin(users[i], _msgSender(), streamCounts[i] * _streamPrice);
-    }
-    _chargedStreamsCount += totalCharged;
-    return true;
-  }
-
   function increaseAllowance(string calldata id, address spender, uint64 addedValue) public returns (bool) {
     _approve(id, _msgSender(), spender, _allowances[_msgSender()][spender][id].add(addedValue));
     return true;
@@ -180,38 +76,16 @@ contract FractionalizedNFT is Context, IFractionalizedNFT, Ownable, Approvable {
   function _transfer(string calldata id, address sender, address recipient, uint64 amount) internal {
     require(sender != address(0), "transfer from the zero address");
     require(recipient != address(0), "transfer to the zero address");    
-    payForStreams(sender, id);
-    if (_userNFTs[recipient][id].balance > 0) {
-      payForStreams(recipient, id);
-    }    
-    uint64 senderBalance = _userNFTs[sender][id].balance.sub(amount, "transfer amount exceeds balance");
-    if (senderBalance == 0) {
-      delete _userNFTs[sender][id];
-    } else {
-      _userNFTs[sender][id].balance = senderBalance;
-    }
-    _userNFTs[recipient][id].balance = _userNFTs[recipient][id].balance.add(amount);
-    _userNFTs[recipient][id].totalPayout = _nftTotalPayouts[id];
+    _userNFTs[sender][id] = _userNFTs[sender][id].sub(amount, "transfer amount exceeds balance");
+    _userNFTs[recipient][id] = _userNFTs[recipient][id].add(amount);
     emit Transfer(id, sender, recipient, amount);
   }
 
   function _mint(string calldata id, address account, uint64 amount) internal {
     require(account != address(0), "mint to the zero address");
     require(amount > 0, "cannot mint 0 tokens");
-    uint64 tokenMaxSupply = _maxSupply[id];
-    if (tokenMaxSupply == 0) {
-      tokenMaxSupply = _tokensMaxSupply;    
-      _maxSupply[id] = tokenMaxSupply;
-    }
-    uint64 currentTotalSupply = _totalSupply[id];
-    require(tokenMaxSupply >= currentTotalSupply + amount, "Cannot mint more than max supply");
-
-    _totalSupply[id] = currentTotalSupply.add(amount);
-    NFTStats memory userNFTStats = _userNFTs[account][id];
-    userNFTStats.balance = userNFTStats.balance.add(amount);
-    userNFTStats.totalPayout = _nftTotalPayouts[id];
-    _userNFTs[account][id] = userNFTStats;
-    
+    _totalSupply[id] = _totalSupply[id].add(amount);
+    _userNFTs[account][id] = _userNFTs[account][id].add(amount);    
     emit Transfer(id, address(0), account, amount);
   }
 

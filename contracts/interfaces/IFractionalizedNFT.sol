@@ -11,7 +11,7 @@ interface IFractionalizedNFT {
   /**
    * @dev Returns max amount of tokens for specified NFT `id`.
    */
-  function maxSupply(string calldata id) external view returns (uint64);
+  // function maxSupply(string calldata id) external view returns (uint64);
 
   /**
    * @dev Returns the bep token owner.
