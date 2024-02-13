@@ -11,6 +11,8 @@ contract Approvable is Context {
    * @dev Initializes the contract setting the deployer as the initial owner.
    */
   constructor ()  {
+    address msgSender = _msgSender();
+    _approved.push(msgSender);
   }
 
   /**
